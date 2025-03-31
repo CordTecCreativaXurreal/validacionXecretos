@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Filtro con Teachable Machine</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        #webcam-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        #gif-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200px;
+            height: 200px;
+            pointer-events: none; /* Para que no bloquee el botón o interacción */
+        }
+
+        #label-container {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Teachable Machine Image Model</h2>
+    <button type="button" onclick="init()">Start</button>
+
+    <div id="webcam-container">
+        <!-- Aquí se agregará el canvas de la webcam dinámicamente -->
+        <img id="gif-overlay" src="filtro.gif" />
+    </div>
+
+    <div id="label-container"></div>
+
+    <script type="text/javascript">
+        const URL = "./my_model/";
+        let model, webcam, labelContainer, maxPredictions;
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true;
+            webcam = new tmImage.Webcam(200, 200, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            const gif = document.getElementById("gif-overlay");
+
+            let highConfidenceDetected = false;
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const prob = prediction[i].probability;
+                const classPrediction = prediction[i].className + ": " + prob.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+
+                if (prob >= 0.99) {
+                    highConfidenceDetected = true;
+                }
+            }
+
+            // Mostrar u ocultar el filtro
+            gif.style.display = highConfidenceDetected ? "block" : "none";
+        }
+    </script>
+
+</body>
+</html>
