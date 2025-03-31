@@ -57,36 +57,47 @@
         let model, webcam, labelContainer, maxPredictions;
     
         async function init() {
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
-    
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-    
-            const flip = false; // No queremos reflejo para cámara trasera
-    
-            // Pedir cámara trasera explícitamente
-            webcam = new tmImage.Webcam(window.innerWidth, window.innerWidth, flip, 
-                { facingMode: { exact: "environment" } }
-            );
-    
-            await webcam.setup();
-            await webcam.play();
-            window.requestAnimationFrame(loop);
-    
-            const container = document.getElementById("webcam-container");
-            container.appendChild(webcam.canvas);
-    
-            // Estilo para que se ajuste a pantalla
-            webcam.canvas.style.width = "100vw";
-            webcam.canvas.style.height = "auto";
-    
-            labelContainer = document.getElementById("label-container");
-            for (let i = 0; i < maxPredictions; i++) {
-                labelContainer.appendChild(document.createElement("div"));
-            }
-        }
-    
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+    model = await tmImage.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
+
+    // Paso 1: Solicitar cámara trasera manualmente
+    const constraints = {
+        video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: window.innerWidth },
+            height: { ideal: window.innerWidth }
+        },
+        audio: false
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // Paso 2: Crear webcam con ese stream
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    await video.play();
+
+    // Paso 3: Crear objeto tmImage.Webcam usando el <video> existente
+    webcam = new tmImage.Webcam(200, 200, false); // flip = false
+    await webcam.setup({ video: video }); // usamos nuestro stream
+    await webcam.play();
+    window.requestAnimationFrame(loop);
+
+    // Insertamos el canvas en pantalla
+    const container = document.getElementById("webcam-container");
+    container.appendChild(webcam.canvas);
+    webcam.canvas.style.width = "100vw";
+    webcam.canvas.style.height = "auto";
+
+    labelContainer = document.getElementById("label-container");
+    for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+    }
+}
+
         async function loop() {
             webcam.update();
             await predict();
